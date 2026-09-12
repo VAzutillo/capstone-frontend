@@ -132,7 +132,7 @@ export default function App() {
 
     const checkAuth = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        const response = await fetch(`${API_BASE_URL}/api/user`, {
           credentials: 'include',
         });
 
@@ -167,7 +167,7 @@ export default function App() {
 
   const handleLogout = useCallback(async () => {
     try {
-      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      await fetch(`${API_BASE_URL}/api/logout`, {
         method: 'POST',
         credentials: 'include',
       });
