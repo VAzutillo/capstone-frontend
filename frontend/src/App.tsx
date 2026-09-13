@@ -1,6 +1,7 @@
 import React, { Component, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { LoginForm } from './components/LoginForm';
+import { EmailVerificationForm } from './components/EmailVerificationForm';
 import { StaffPortalAccessGate } from './components/StaffPortalAccessGate';
 import { ForgotPasswordForm } from './components/ForgotPasswordForm';
 import { StudentRegistrationForm } from './components/StudentRegistrationForm';
@@ -89,7 +90,8 @@ class RegistrationErrorBoundary extends Component<
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authView, setAuthView] = useState<'login' | 'forgot'>('login');
+  const [authView, setAuthView] = useState<'login' | 'forgot' | 'verify'>('login');
+  const [pendingVerificationUser, setPendingVerificationUser] = useState<{ email: string; role: UserRole } | null>(null);
   const [role, setRole] = useState<UserRole>('admin');
   const [userEmail, setUserEmail] = useState<string>('');
   const [currentView, setCurrentView] = useState('overview');
@@ -179,6 +181,22 @@ export default function App() {
       setUserEmail('');
       navigate('/');
     }
+  }, [navigate]);
+
+  const handleStudentLogin = useCallback((user: { email: string; role: UserRole }) => {
+    setPendingVerificationUser(user);
+    setAuthView('verify');
+  }, []);
+
+  const completeStudentLogin = useCallback((user: { email: string; role: UserRole }) => {
+    setRole(user.role);
+    setUserEmail(user.email);
+    setCurrentView(navItemsByRole[user.role][0]?.id ?? 'overview');
+    setIsAuthenticated(true);
+    setPendingVerificationUser(null);
+    setAuthView('login');
+    const nextDefault = viewRoutesByRole[user.role][0]?.path ?? '/';
+    navigate(nextDefault);
   }, [navigate]);
 
   useEffect(() => {
@@ -489,14 +507,7 @@ export default function App() {
                   showRoleSelector={false}
                   title="Student Login"
                   subtitle="Enter your credentials to continue"
-                  onLogin={(user) => {
-                    setRole(user.role);
-                    setUserEmail(user.email ?? '');
-                    setCurrentView(navItemsByRole[user.role][0]?.id ?? 'overview');
-                    setIsAuthenticated(true);
-                    const nextDefault = viewRoutesByRole[user.role][0]?.path ?? '/';
-                    navigate(nextDefault);
-                  }}
+                  onLogin={handleStudentLogin}
                   onForgot={() => setAuthView('forgot')}
                 />
               }
@@ -509,14 +520,7 @@ export default function App() {
                   showRoleSelector={false}
                   title="Student Login"
                   subtitle="Enter your credentials to continue"
-                  onLogin={(user) => {
-                    setRole(user.role);
-                    setUserEmail(user.email ?? '');
-                    setCurrentView(navItemsByRole[user.role][0]?.id ?? 'overview');
-                    setIsAuthenticated(true);
-                    const nextDefault = viewRoutesByRole[user.role][0]?.path ?? '/';
-                    navigate(nextDefault);
-                  }}
+                  onLogin={handleStudentLogin}
                   onForgot={() => setAuthView('forgot')}
                 />
               }
@@ -589,6 +593,17 @@ export default function App() {
             <Route path="/student/*" element={<Navigate to="/login/student" replace />} />
             <Route path="*" element={<NotFound isAuthenticated={false} />} />
           </Routes>
+        ) : authView === 'forgot' ? (
+          <ForgotPasswordForm onBack={() => setAuthView('login')} />
+        ) : pendingVerificationUser ? (
+          <EmailVerificationForm
+            email={pendingVerificationUser.email}
+            onVerified={completeStudentLogin}
+            onBack={() => {
+              setPendingVerificationUser(null);
+              setAuthView('login');
+            }}
+          />
         ) : (
           <ForgotPasswordForm onBack={() => setAuthView('login')} />
         )}

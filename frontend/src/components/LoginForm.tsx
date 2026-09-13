@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import type { UserRole } from '../types/rbac';
 
 import { API_BASE_URL } from '../config';
@@ -40,11 +40,18 @@ export function LoginForm({
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captcha, setCaptcha] = useState(() => createCaptcha());
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [captchaTouched, setCaptchaTouched] = useState(false);
+
+  const isStudentLogin = forcedRole === 'student';
+  const captchaHasValue = captchaAnswer.trim().length > 0;
+  const captchaIsCorrect = captchaHasValue && Number(captchaAnswer) === captcha.answer;
 
   const getEmailPlaceholder = () => {
     switch (forcedRole) {
       case 'student':
-        return 'Student Email';
+        return 'student@gmail.com';
       case 'admin':
         return 'ADMIN ID';
       case 'super_admin':
@@ -59,6 +66,20 @@ export function LoginForm({
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     setError(null);
+
+    if (isStudentLogin) {
+      setCaptchaTouched(true);
+      if (!captchaAnswer.trim()) {
+        setError('Required field cannot be left blank');
+        return;
+      }
+
+      if (Number(captchaAnswer) !== captcha.answer) {
+        setError('Please fill correct value');
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
@@ -161,6 +182,83 @@ export function LoginForm({
             </div>
           </div>
 
+          {isStudentLogin && (
+            <>
+              {/* CAPTCHA */}
+              <div>
+                <div className="flex items-center gap-2">
+                   <span className="flex h-14 w-20 rounded-md border border-neutral-300 bg-white px-4 py-2 text-lg font-semibold text-neutral-500">
+                    {captcha.left}
+                  </span>
+                  <span className="text-neutral-500">+</span>
+                  <span className="flex h-14 w-20 rounded-md border border-neutral-300 bg-white px-4 py-2 text-lg font-semibold text-neutral-500">
+                    {captcha.right}
+                  </span>
+                  <span className="text-neutral-500">=</span>
+                  <input
+                    id="captcha"
+                    type="text"
+                    inputMode="numeric"
+                    value={captchaAnswer}
+                    onChange={(e) => {
+                      setCaptchaAnswer(e.target.value.replace(/\D/g, ''));
+                      setCaptchaTouched(true);
+                    }}
+                    onBlur={() => setCaptchaTouched(true)}
+                    required
+                    placeholder=""
+                    aria-describedby="captcha-message"
+                    className={`rounded-md border px-2 py-2 text-center text-lg font-semibold outline-none transition-all focus:outline-none focus:ring-0 ${
+                      captchaTouched && !captchaAnswer.trim()
+                        ? 'border-red-500 text-red-500 focus:ring-2 focus:ring-red-500/10'
+                        : captchaHasValue && !captchaIsCorrect
+                          ? 'border-red-500 text-red-500 focus:ring-2 focus:ring-red-500/10'
+                          : captchaIsCorrect
+                            ? 'border-green-500 text-green-600 focus:ring-2 focus:ring-green-500/10'
+                            : 'border-neutral-300 text-neutral-900 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/10'
+                    }`}
+                    style={{
+                      width: '6rem',
+                      minWidth: '6rem',
+                      maxWidth: '6rem',
+                      flex: '0 0 6rem',
+                      ...(captchaIsCorrect
+                        ? { borderColor: '#22c55e', color: '#16a34a', outline: 'none' }
+                        : captchaHasValue || captchaTouched
+                          ? { borderColor: '#ef4444', color: '#ef4444', outline: 'none' }
+                          : {}),
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCaptcha(createCaptcha());
+                      setCaptchaAnswer('');
+                      setCaptchaTouched(false);
+                      setError(null);
+                    }}
+                    className="rounded-lg px-3 text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                    aria-label="Refresh CAPTCHA"
+                    title="Refresh CAPTCHA"
+                  >
+                    <RefreshCw className="h-10 w-10" />
+                  </button>
+                </div>
+                {captchaTouched && !captchaAnswer.trim() && (
+                  <p id="captcha-message" className="mt-1 text-sm text-red-500">
+                    Required field cannot be left blank
+                  </p>
+                )}
+                {captchaTouched && captchaAnswer.trim() && Number(captchaAnswer) !== captcha.answer && (
+                  <p id="captcha-message" className="mt-1 text-sm text-red-500">
+                    Please fill correct value
+                  </p>
+                )}
+              </div>
+
+            </>
+          )}
+
           {/* Error Message */}
           {error && (
             <div className="rounded-lg bg-red-50 border border-red-200 p-3">
@@ -217,4 +315,10 @@ export function LoginForm({
       </div>
     </div>
   );
+}
+
+function createCaptcha() {
+  const left = Math.floor(Math.random() * 8) + 2;
+  const right = Math.floor(Math.random() * 8) + 1;
+  return { left, right, answer: left + right };
 }
